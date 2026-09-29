@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Календарик</title>
+<meta name="description" content="Личный календарь с крупными ячейками, значками, категориями, заметками и поездками. Работает без интернета.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Календарик">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f4f4f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0e0e12" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root{
+  --bg:#f4f4f9; --bg2:#ececf4;
+  --card:#ffffff; --card2:#f2f2f8; --card3:#e9e9f2;
+  --text:#15151c; --dim:#8b8b98; --line:#e6e6ef;
+  --accent:#5b6cff; --accent2:#7b87ff; --red:#e5484d;
+  --sh:0 1px 2px rgba(20,20,45,.05), 0 4px 14px rgba(20,20,45,.045);
+  --sh2:0 2px 6px rgba(20,20,45,.08), 0 12px 34px rgba(20,20,45,.13);
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0e0e12; --bg2:#141419;
+    --card:#1b1b22; --card2:#24242d; --card3:#2d2d38;
+    --text:#f3f3f7; --dim:#8d8d9b; --line:#2a2a34;
+    --accent:#7d8bff; --accent2:#94a0ff; --red:#ff6169;
+    --sh:0 1px 2px rgba(0,0,0,.3);
+    --sh2:0 2px 8px rgba(0,0,0,.4), 0 16px 40px rgba(0,0,0,.5);
+  }
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0; height:100%; overscroll-behavior:none;}
+body{
+  background:var(--bg);
+  background-image:radial-gradient(120% 60% at 50% 0%, var(--bg2) 0%, var(--bg) 62%);
+  color:var(--text);
+  font:400 16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  display:flex; flex-direction:column; height:100dvh; overflow:hidden;
+  padding-top:env(safe-area-inset-top);
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit; color:inherit; background:none; border:0; padding:0; cursor:pointer;}
+input,select,textarea{font:inherit; color:inherit;}
+::selection{background:var(--accent); color:#fff;}
+
+/* ---------- Шапка ---------- */
+header{padding:10px 13px 4px; flex:none;}
+.bar{display:flex; align-items:center; gap:7px;}
+.mtitle{
+  font-size:21px; font-weight:800; letter-spacing:-.5px;
+  padding:5px 9px; border-radius:11px; margin-right:auto;
+  display:flex; align-items:baseline; gap:6px; transition:background .15s;
+}
+.mtitle span{font-weight:500; color:var(--dim); font-size:15px; letter-spacing:0;}
+.mtitle:active{background:var(--card);}
+.nav{
+  width:35px; height:35px; border-radius:50%; background:var(--card); box-shadow:var(--sh);
+  display:grid; place-items:center; font-size:17px; color:var(--dim); flex:none;
+  transition:transform .12s, color .15s;
+}
+.nav:active{transform:scale(.9); color:var(--text);}
+.tdy{
+  height:35px; padding:0 14px; border-radius:18px; background:var(--card); box-shadow:var(--sh);
+  font-size:14px; font-weight:650; color:var(--accent); flex:none; transition:transform .12s;
+}
+.tdy:active{transform:scale(.94);}
+
+/* ---------- Категории ---------- */
+.cats{display:flex; gap:7px; overflow-x:auto; padding:10px 13px 4px; flex:none; scrollbar-width:none;}
+.cats::-webkit-scrollbar{display:none;}
+.chip{
+  flex:none; height:30px; padding:0 12px; border-radius:15px;
+  background:var(--card); box-shadow:var(--sh); font-size:13.5px; font-weight:600;
+  display:flex; align-items:center; gap:6px; white-space:nowrap;
+  border:1.5px solid transparent; transition:opacity .15s, transform .12s;
+}
+.chip:active{transform:scale(.95);}
+.chip .dot{width:9px; height:9px; border-radius:50%; flex:none;}
+.chip.off{opacity:.34; box-shadow:none;}
+.chip.off .dot{background:var(--dim)!important;}
+
+/* ---------- Дни недели ---------- */
+.wd{display:grid; grid-template-columns:repeat(7,1fr); gap:5px; padding:9px 11px 6px; flex:none;}
+.wd div{
+  text-align:center; font-size:11px; font-weight:700;
+  color:var(--dim); letter-spacing:.6px; text-transform:uppercase;
+}
+.wd div.we{color:var(--red); opacity:.7;}
+
+/* ---------- Сетка ---------- */
+.scroll{flex:1; overflow-y:auto; padding:0 11px 14px; -webkit-overflow-scrolling:touch;}
+.grid{display:grid; grid-template-columns:repeat(7,1fr); grid-auto-rows:var(--rowh,58px); gap:5px;}
+.cell{
+  background:var(--card); border-radius:var(--r); box-shadow:var(--sh);
+  padding:4px 4px 3px; overflow:hidden;
+  display:flex; flex-direction:column; position:relative;
+  transition:transform .1s;
+}
+.cell:active{transform:scale(.96);}
+.cell.out{opacity:.38; box-shadow:none;}
+.dnum{
+  font-size:12.5px; font-weight:700; line-height:1.15; flex:none;
+  display:flex; align-items:center; gap:2px; padding:1px 1px 0;
+}
+.dnum u{
+  width:19px; height:19px; margin:-2px 0 -2px -2px; border-radius:50%;
+  display:grid; place-items:center; text-decoration:none; flex:none;
+}
+.dnum em{font-style:normal; font-size:11px; margin-left:auto; line-height:1;}
+.cell.we .dnum{color:var(--red);}
+.cell.today .dnum u{
+  background:linear-gradient(160deg,var(--accent2),var(--accent));
+  color:#fff; font-weight:800; box-shadow:0 2px 6px rgba(91,108,255,.4);
+}
+.cell.today{box-shadow:0 0 0 1.5px var(--accent), var(--sh);}
+
+/* полоса поездки */
+.trip{
+  font-size:clamp(7.5px,2.2vw,11px); font-weight:800; line-height:1.3;
+  padding:1.5px 3px; border-radius:5px; margin:2px 0 0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:none;
+}
+.trip.mid{border-radius:0 5px 5px 0; margin-left:-4px; padding-left:5px;}
+.trip.blank{min-height:6px; padding:0; border-radius:0; margin-left:-4px; margin-right:-4px;}
+
+.evs{flex:1; min-height:0; display:flex; flex-direction:column; gap:1.5px; margin-top:2px;}
+.ev{
+  font-size:clamp(8.5px,2.5vw,11.5px); line-height:1.2; border-radius:5px;
+  padding:1px 4px 2px; overflow:hidden; flex:none;
+  border-left:2.5px solid;
+}
+.ev i{
+  display:flex; align-items:center; justify-content:space-between; gap:2px;
+  font-style:normal; font-weight:800; font-size:.87em;
+  line-height:1.15; letter-spacing:-.2px;
+}
+.ev em{font-style:normal; font-size:.88em; line-height:1; flex:none;}
+.ev u{line-height:1.18;}
+.ev u em{font-size:.85em; margin-right:2px; vertical-align:-.5px;}
+.trip em{font-style:normal; font-size:.75em; line-height:1; margin-right:1px;}
+.ev u{
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+  overflow:hidden; text-decoration:none; overflow-wrap:anywhere;
+  font-size:.95em; letter-spacing:-.15px;
+}
+.ev b{display:inline-block; width:5px; height:5px; border-radius:50%; margin-right:3px; vertical-align:middle;}
+.more{font-size:9px; color:var(--dim); padding:0 4px; font-weight:700; line-height:1.15;}
+
+/* ---------- Шторки ---------- */
+.back{
+  position:fixed; inset:0; background:rgba(10,10,25,.4);
+  opacity:0; pointer-events:none; transition:opacity .28s; z-index:10;
+  -webkit-backdrop-filter:blur(3px); backdrop-filter:blur(3px);
+}
+.back.on{opacity:1; pointer-events:auto;}
+.sheet{
+  position:fixed; left:0; right:0; bottom:0; z-index:11;
+  background:var(--bg); border-radius:26px 26px 0 0;
+  max-height:92dvh; display:flex; flex-direction:column;
+  transform:translateY(101%); transition:transform .34s cubic-bezier(.32,.72,0,1);
+  padding-bottom:env(safe-area-inset-bottom);
+  box-shadow:var(--sh2);
+}
+.sheet.on{transform:translateY(0);}
+.grab{padding:10px 0 2px; flex:none; display:grid; place-items:center;}
+.grab i{width:40px; height:5px; border-radius:3px; background:var(--card3); display:block;}
+.shead{display:flex; align-items:center; gap:11px; padding:6px 18px 12px; flex:none;}
+.shead h2{margin:0; font-size:20px; font-weight:800; letter-spacing:-.4px; flex:1;}
+.shead h2 small{display:block; font-size:13px; font-weight:500; color:var(--dim); margin-top:2px; letter-spacing:0;}
+.dayico{
+  width:42px; height:42px; border-radius:50%; background:var(--card); box-shadow:var(--sh);
+  display:grid; place-items:center; font-size:21px; flex:none; transition:transform .12s;
+}
+.dayico:active{transform:scale(.9);}
+.dayico.empty{font-size:15px; color:var(--dim);}
+.x{
+  width:32px; height:32px; border-radius:50%; background:var(--card); box-shadow:var(--sh);
+  display:grid; place-items:center; color:var(--dim); font-size:15px; flex:none;
+}
+.sbody{overflow-y:auto; padding:0 18px 18px; -webkit-overflow-scrolling:touch;}
+
+/* ---------- Списки ---------- */
+.list{display:flex; flex-direction:column; gap:8px; margin-bottom:15px;}
+.row{
+  background:var(--card); border-radius:var(--r); padding:12px 13px; box-shadow:var(--sh);
+  display:flex; align-items:flex-start; gap:11px; border-left:4px solid var(--accent);
+  transition:transform .1s;
+}
+.row:active{transform:scale(.985);}
+.row .tm{font-size:14px; font-weight:800; min-width:44px; flex:none; padding-top:1px; letter-spacing:-.3px;}
+.row .ic{font-size:19px; flex:none; line-height:1.15;}
+.row .tx{flex:1; font-size:15.5px; word-break:break-word; font-weight:500;}
+.row .tx em{
+  display:block; font-style:normal; font-size:12.5px; color:var(--dim);
+  margin-top:3px; font-weight:400;
+}
+.row .del{
+  flex:none; width:29px; height:29px; border-radius:50%; background:var(--card2);
+  display:grid; place-items:center; color:var(--dim); font-size:14px;
+}
+.empty{color:var(--dim); font-size:14.5px; text-align:center; padding:14px 0 18px;}
+.lbl{
+  font-size:11.5px; font-weight:800; color:var(--dim); text-transform:uppercase;
+  letter-spacing:.7px; margin:0 0 8px 3px;
+}
+
+/* ---------- Форма ---------- */
+.form{background:var(--card); border-radius:20px; padding:13px; display:flex; flex-direction:column; gap:11px; box-shadow:var(--sh);}
+.frow{display:flex; gap:9px; align-items:center;}
+.frow .to{color:var(--dim); font-size:15px; flex:none;}
+.fld{
+  background:var(--card2); border:1.5px solid transparent; border-radius:12px;
+  padding:12px 13px; font-size:16px; width:100%; outline:none; min-width:0;
+  transition:border-color .15s;
+}
+.fld:focus{border-color:var(--accent);}
+input[type=time].fld{width:110px; flex:none; text-align:center; font-weight:700;}
+input[type=date].fld{text-align:center; font-weight:700; padding:12px 6px;}
+.pick{display:flex; gap:7px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none;}
+.pick::-webkit-scrollbar{display:none;}
+.pick .chip{background:var(--card2); box-shadow:none;}
+.pick .chip.sel{border-color:currentColor; font-weight:800;}
+
+/* значки */
+.icos{
+  display:flex; gap:5px; overflow-x:auto; scrollbar-width:none;
+  padding:2px 0; -webkit-overflow-scrolling:touch;
+}
+.icos::-webkit-scrollbar{display:none;}
+.icos button{
+  flex:none; width:38px; height:38px; border-radius:12px; background:var(--card2);
+  font-size:20px; display:grid; place-items:center; border:2px solid transparent;
+  transition:transform .12s;
+}
+.icos button:active{transform:scale(.88);}
+.icos button.sel{border-color:var(--accent); background:var(--card3);}
+.icos button.none{font-size:13px; color:var(--dim); font-weight:700;}
+
+.save{
+  background:linear-gradient(160deg,var(--accent2),var(--accent)); color:#fff;
+  border-radius:14px; padding:14px; font-size:16.5px; font-weight:700; text-align:center; width:100%;
+  box-shadow:0 3px 12px rgba(91,108,255,.32); transition:transform .12s;
+}
+.save:active{transform:scale(.97);}
+.save.gray{background:var(--card2); color:var(--text); box-shadow:none;}
+.hint{font-size:12.5px; color:var(--dim); line-height:1.5;}
+
+/* ---------- Настройки ---------- */
+.seg{display:flex; gap:5px; background:var(--card2); border-radius:14px; padding:4px;}
+.seg.solo{background:var(--card); box-shadow:var(--sh);}
+.seg button{flex:1; padding:10px 0; border-radius:11px; font-size:14px; font-weight:700; color:var(--dim); transition:.15s;}
+.seg button.sel{background:var(--card); color:var(--text); box-shadow:var(--sh);}
+.seg.solo button.sel{background:var(--card2); box-shadow:none;}
+.sect{margin-bottom:22px;}
+.sect h3{
+  margin:0 0 9px; font-size:11.5px; font-weight:800; color:var(--dim);
+  text-transform:uppercase; letter-spacing:.7px; padding-left:3px;
+}
+.crow{
+  background:var(--card); border-radius:var(--r); padding:9px 11px; box-shadow:var(--sh);
+  display:flex; align-items:center; gap:10px; margin-bottom:8px;
+}
+.sw{width:27px; height:27px; border-radius:50%; flex:none; border:2.5px solid var(--card2);}
+.crow input{flex:1; background:none; border:0; outline:none; font-size:15.5px; padding:5px 0; min-width:0; font-weight:500;}
+.pal{display:flex; flex-wrap:wrap; gap:10px; padding:11px 3px 6px;}
+.pal button{width:35px; height:35px; border-radius:50%; border:3px solid transparent; transition:transform .12s;}
+.pal button:active{transform:scale(.88);}
+.pal button.sel{border-color:var(--text);}
+.btn{
+  background:var(--card); border-radius:14px; padding:14px 15px; width:100%; box-shadow:var(--sh);
+  text-align:left; font-size:15.5px; display:flex; align-items:center; gap:11px; margin-bottom:8px;
+  font-weight:500; transition:transform .1s;
+}
+.btn:active{transform:scale(.985);}
+.btn span{margin-left:auto; color:var(--dim); font-size:13px;}
+.btn.sub{
+  margin:-6px 0 2px 14px; width:auto; align-self:flex-start; max-width:calc(100% - 14px);
+  padding:9px 13px; font-size:13.5px;
+  font-weight:600; color:var(--dim); background:var(--card2); box-shadow:none;
+  border-radius:0 12px 12px 12px;
+}
+.toast{
+  position:fixed; left:50%; bottom:calc(28px + env(safe-area-inset-bottom));
+  transform:translate(-50%,16px); z-index:20;
+  background:var(--text); color:var(--bg); font-size:14px; font-weight:650;
+  padding:12px 20px; border-radius:24px; opacity:0; transition:.28s; pointer-events:none;
+  max-width:88vw; text-align:center; box-shadow:var(--sh2);
+}
+.toast.on{opacity:.97; transform:translate(-50%,0);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <button class="mtitle" id="title" aria-label="Выбрать месяц"></button>
+    <button class="nav" id="prev" aria-label="Предыдущий месяц">‹</button>
+    <button class="tdy" id="today">Сегодня</button>
+    <button class="nav" id="next" aria-label="Следующий месяц">›</button>
+    <button class="nav" id="gear" aria-label="Настройки">⚙</button>
+  </div>
+</header>
+
+<div class="cats" id="cats"></div>
+<div class="wd" id="wd"></div>
+
+<div class="scroll" id="scroll"><div class="grid" id="grid"></div></div>
+
+<div class="back" id="back"></div>
+
+<!-- Шторка дня -->
+<div class="sheet" id="daySheet">
+  <div class="grab"><i></i></div>
+  <div class="shead">
+    <button class="dayico" id="dayIco" aria-label="Значок дня"></button>
+    <h2 id="dayTitle"></h2>
+    <button class="x" data-close aria-label="Закрыть">✕</button>
+  </div>
+  <div class="sbody">
+    <div id="dayIcoPick" style="display:none; margin-bottom:15px"></div>
+    <div id="tripBox"></div>
+    <div class="list" id="dayList"></div>
+
+    <div class="form">
+      <div class="seg" id="modeSeg">
+        <button data-mode="one">Запись</button>
+        <button data-mode="span">Поездка</button>
+      </div>
+
+      <div id="oneFields">
+        <div class="frow" style="margin-bottom:11px">
+          <input type="time" class="fld" id="fTime" aria-label="Время">
+          <input type="text" class="fld" id="fText" placeholder="Что за событие?" aria-label="Описание" maxlength="120">
+        </div>
+        <div class="lbl" style="margin:0 0 6px 3px">Значок</div>
+        <div class="icos" id="fIcons"></div>
+        <div class="lbl" id="remLbl" style="margin:12px 0 6px 3px">Напомнить</div>
+        <div class="pick" id="fRem"></div>
+      </div>
+
+      <div id="spanFields" style="display:none">
+        <div class="frow" style="margin-bottom:11px">
+          <input type="date" class="fld" id="fFrom" aria-label="Дата начала">
+          <div class="to">→</div>
+          <input type="date" class="fld" id="fTo" aria-label="Дата окончания">
+        </div>
+        <input type="text" class="fld" id="fPlace" placeholder="Куда? Например: Сочи" aria-label="Куда поездка" maxlength="60" style="margin-bottom:11px">
+        <div class="lbl" style="margin:0 0 6px 3px">Значок</div>
+        <div class="icos" id="fTripIcons"></div>
+      </div>
+
+      <div class="pick" id="fCats"></div>
+      <button class="save" id="fSave">Добавить</button>
+      <button class="save gray" id="fCancel" style="display:none">Отменить изменение</button>
+      <div class="hint" id="fHint"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Шторка месяцев -->
+<div class="sheet" id="monSheet">
+  <div class="grab"><i></i></div>
+  <div class="shead">
+    <h2>Перейти к месяцу</h2>
+    <button class="x" data-close aria-label="Закрыть">✕</button>
+  </div>
+  <div class="sbody">
+    <div class="bar" style="margin-bottom:14px">
+      <button class="nav" id="yPrev">‹</button>
+      <div style="flex:1; text-align:center; font-size:20px; font-weight:800" id="yLabel"></div>
+      <button class="nav" id="yNext">›</button>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px" id="monGrid"></div>
+  </div>
+</div>
+
+<!-- Шторка настроек -->
+<div class="sheet" id="setSheet">
+  <div class="grab"><i></i></div>
+  <div class="shead">
+    <h2>Настройки</h2>
+    <button class="x" data-close aria-label="Закрыть">✕</button>
+  </div>
+  <div class="sbody">
+    <div class="sect">
+      <h3>Размер ячеек</h3>
+      <div class="seg solo" id="sizeSeg">
+        <button data-size="s">Мелкие</button>
+        <button data-size="m">Средние</button>
+        <button data-size="l">Крупные</button>
+      </div>
+    </div>
+    <div class="sect">
+      <h3>Категории</h3>
+      <div id="catEdit"></div>
+      <button class="btn" id="catAdd">＋&nbsp; Добавить категорию</button>
+    </div>
+    <div class="sect">
+      <h3>Мои записи</h3>
+      <button class="btn" id="expBtn">💾&nbsp; Сохранить копию в файл <span id="cntLbl"></span></button>
+      <button class="btn" id="impBtn">📂&nbsp; Загрузить копию из файла</button>
+      <input type="file" id="impFile" accept=".json,application/json" style="display:none">
+      <div class="hint" style="padding:4px 3px">Записи хранятся только в этом телефоне и никуда не отправляются. Раз в месяц сохраняй копию в файл — если почистить данные браузера, записи пропадут.</div>
+    </div>
+    <div class="sect">
+      <h3>Про напоминания</h3>
+      <div class="hint" style="padding:0 3px">
+        Календарик не может сам прислать уведомление, когда он закрыт — Apple такого сайтам не разрешает.
+        Поэтому у записи со временем есть кнопка <b>«Напомнить в Календаре iPhone»</b>: она передаёт событие
+        стандартному Календарю, и дальше уведомление в нужный момент присылает уже сам телефон.
+      </div>
+    </div>
+    <div class="sect">
+      <h3>Как поставить на телефон</h3>
+      <div class="hint" style="padding:0 3px">
+        Открой эту страницу в Safari на iPhone → кнопка «Поделиться» внизу → «На экран „Домой“».
+        Появится иконка, и календарик будет открываться как обычное приложение, даже без интернета.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+
+var MON=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+var MONG=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+var MONSH=['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+var WD=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+var WDF=['понедельник','вторник','среда','четверг','пятница','суббота','воскресенье'];
+var PALETTE=['#5b6cff','#8b5cf6','#ec4899','#e5484d','#f97316','#eab308','#22c55e','#14b8a6','#0ea5e9','#78716c'];
+var ICONS=['🎂','🎉','❤️','⭐','💼','💻','📞','📝','💰','🛒','🏥','💊','🦷','💪','🏃','🧘','🍽️','☕','🍰','💅','💇','🛁','🧹','📚','🎓','🎬','🎵','🎨','📸','🐶','🐱','🌸','🏠','🔧','⏰','⚠️'];
+var TRIPICONS=['✈️','🚗','🚆','🚌','⛴️','🏖️','🏔️','🏕️','🏨','🌍','🎒','🏡'];
+var REM=[['','Без напоминания'],['0','Вовремя'],['10','За 10 минут'],['30','За 30 минут'],['60','За час'],['180','За 3 часа'],['1440','За сутки']];
+var SIZES={s:1,m:1,l:1};
+var KEY='kalendarik.v1';
+
+/* ---------- Состояние ---------- */
+var S=load();
+var view=new Date(); view.setDate(1);
+var openDay=null, mode='one', editId=null, editSpan=null;
+var formCat=null, formIcon='', formRem='', formTripIcon='✈️';
+var palFor=null, pickY=view.getFullYear();
+
+function defState(){
+  return {
+    cats:[
+      {id:'c1',name:'Дела',     color:'#5b6cff'},
+      {id:'c2',name:'Работа',   color:'#8b5cf6'},
+      {id:'c3',name:'Здоровье', color:'#22c55e'},
+      {id:'c4',name:'Личное',   color:'#ec4899'},
+      {id:'c5',name:'Поездки',  color:'#f97316'}
+    ],
+    entries:{}, spans:[], dayIcons:{}, size:'m', hidden:[]
+  };
+}
+function fix(d){
+  var base=defState();
+  if(!d||typeof d!=='object') return base;
+  if(!Array.isArray(d.cats)||!d.cats.length) d.cats=base.cats;
+  if(!d.entries||typeof d.entries!=='object') d.entries={};
+  if(!Array.isArray(d.spans)) d.spans=[];
+  if(!d.dayIcons||typeof d.dayIcons!=='object') d.dayIcons={};
+  if(!SIZES[d.size]) d.size='m';
+  if(!Array.isArray(d.hidden)) d.hidden=[];
+  return d;
+}
+function load(){
+  try{
+    var raw=localStorage.getItem(KEY);
+    return raw?fix(JSON.parse(raw)):defState();
+  }catch(e){ return defState(); }
+}
+function save(){
+  try{ localStorage.setItem(KEY,JSON.stringify(S)); }
+  catch(e){ toast('Не удалось сохранить — нет места'); }
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+/* ---------- Помощники ---------- */
+function $(id){ return document.getElementById(id); }
+function key(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function parseKey(k){ var p=k.split('-'); return new Date(+p[0],+p[1]-1,+p[2]); }
+function shortDate(k){ var d=parseKey(k); return d.getDate()+' '+MONG[d.getMonth()]; }
+function dayCount(a,b){ return Math.round((parseKey(b)-parseKey(a))/86400000)+1; }
+function plural(n,f){
+  var a=n%10, b=n%100;
+  if(a===1&&b!==11) return f[0];
+  if(a>=2&&a<=4&&(b<10||b>=20)) return f[1];
+  return f[2];
+}
+function rgba(hex,a){
+  var h=String(hex).replace('#','');
+  if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  var n=parseInt(h,16);
+  if(isNaN(n)) return 'rgba(120,120,130,'+a+')';
+  return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
+}
+function cat(id){
+  for(var i=0;i<S.cats.length;i++) if(S.cats[i].id===id) return S.cats[i];
+  return S.cats[0];
+}
+function shown(c){ return S.hidden.indexOf(c)<0; }
+function visible(list){ return (list||[]).filter(function(e){ return shown(e.cat); }); }
+function sortEv(a,b){
+  if(a.time&&b.time) return a.time<b.time?-1:(a.time>b.time?1:0);
+  if(a.time) return 1;
+  if(b.time) return -1;
+  return 0;
+}
+function spansOn(k,all){
+  return S.spans.filter(function(s){
+    return s.from<=k && k<=s.to && (all||shown(s.cat));
+  }).sort(function(a,b){ return dayCount(b.from,b.to)-dayCount(a.from,a.to); });
+}
+function remName(v){
+  for(var i=0;i<REM.length;i++) if(REM[i][0]===String(v)) return REM[i][1];
+  return '';
+}
+var tId;
+function toast(msg){
+  var t=$('toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(tId); tId=setTimeout(function(){ t.classList.remove('on'); },2400);
+}
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function textColor(){
+  return getComputedStyle(document.documentElement).getPropertyValue('--text').trim()||'#15151c';
+}
+
+/* ---------- Передача события в Календарь iPhone ---------- */
+function icsEsc(s){
+  return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n');
+}
+function toCalendar(e,dayK){
+  var d=dayK.replace(/-/g,'');
+  var lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Kalendarik//RU','CALSCALE:GREGORIAN','BEGIN:VEVENT',
+             'UID:'+e.id+'@kalendarik','DTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z'];
+  if(e.time){
+    var t=e.time.replace(':','')+'00';
+    var end=new Date(parseKey(dayK).getTime());
+    end.setHours(+e.time.slice(0,2)+1, +e.time.slice(3,5));
+    lines.push('DTSTART:'+d+'T'+t);
+    lines.push('DTEND:'+key(end).replace(/-/g,'')+'T'+
+      String(end.getHours()).padStart(2,'0')+String(end.getMinutes()).padStart(2,'0')+'00');
+  }else{
+    var nx=parseKey(dayK); nx.setDate(nx.getDate()+1);
+    lines.push('DTSTART;VALUE=DATE:'+d);
+    lines.push('DTEND;VALUE=DATE:'+key(nx).replace(/-/g,''));
+  }
+  lines.push('SUMMARY:'+icsEsc((e.icon?e.icon+' ':'')+e.text));
+  if(e.remind!==''&&e.remind!==undefined&&e.remind!==null){
+    lines.push('BEGIN:VALARM','TRIGGER:-PT'+(+e.remind)+'M','ACTION:DISPLAY',
+               'DESCRIPTION:'+icsEsc(e.text),'END:VALARM');
+  }
+  lines.push('END:VEVENT','END:VCALENDAR');
+
+  var blob=new Blob([lines.join('\r\n')],{type:'text/calendar;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url; a.download=(e.text||'событие').replace(/[\\/:*?"<>|]/g,'')+'.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); },5000);
+  toast('Открой файл — телефон предложит добавить в Календарь');
+}
+
+/* ---------- Отрисовка ---------- */
+function renderHead(){
+  $('title').innerHTML=MON[view.getMonth()]+' <span>'+view.getFullYear()+'</span>';
+  var w=$('wd');
+  if(!w.children.length){
+    for(var i=0;i<7;i++){
+      var d=document.createElement('div');
+      d.textContent=WD[i];
+      if(i>4) d.className='we';
+      w.appendChild(d);
+    }
+  }
+}
+function renderCats(){
+  var box=$('cats'); box.innerHTML='';
+  S.cats.forEach(function(c){
+    var b=document.createElement('button');
+    b.className='chip'+(shown(c.id)?'':' off');
+    b.style.color=c.color;
+    b.innerHTML='<i class="dot" style="background:'+c.color+'"></i>'+esc(c.name);
+    b.onclick=function(){
+      var i=S.hidden.indexOf(c.id);
+      if(i>=0) S.hidden.splice(i,1); else S.hidden.push(c.id);
+      save(); renderCats(); renderGrid();
+    };
+    box.appendChild(b);
+  });
+}
+/* Ячейки растягиваются на свободную высоту, но не уже квадрата на телефоне. */
+function rowHeight(rows){
+  var sc=$('scroll');
+  var cw=(Math.max(220,sc.clientWidth-22)-30)/7;
+  var fill=(sc.clientHeight-14-(rows-1)*5)/rows;
+  if(S.size==='s') return Math.round(Math.max(38,cw));
+  if(S.size==='m') return Math.round(Math.max(Math.min(cw,72),Math.min(fill,cw*2.15)));
+  return Math.round(Math.max(cw*1.5,Math.min(fill*1.35,cw*3.05)));
+}
+function renderGrid(){
+  var g=$('grid'); g.innerHTML='';
+  var y=view.getFullYear(), m=view.getMonth();
+  var shift=(new Date(y,m,1).getDay()+6)%7;
+  var start=new Date(y,m,1-shift);
+  var todayK=key(new Date());
+  var rows=Math.ceil((shift+new Date(y,m+1,0).getDate())/7);
+  document.documentElement.style.setProperty('--rowh',rowHeight(rows)+'px');
+  var pending=[], tc=textColor();
+
+  for(var i=0;i<rows*7;i++){
+    var d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i);
+    var k=key(d);
+    var wd=(d.getDay()+6)%7;
+
+    var cell=document.createElement('button');
+    cell.className='cell'+(d.getMonth()!==m?' out':'')+(wd>4?' we':'')+(k===todayK?' today':'');
+    cell.setAttribute('data-k',k);
+
+    var trips=spansOn(k,false);
+    if(trips.length) cell.style.background=rgba(cat(trips[0].cat).color,.16);
+
+    var num=document.createElement('div');
+    num.className='dnum';
+    num.innerHTML='<u>'+d.getDate()+'</u>'+(S.dayIcons[k]?'<em>'+esc(S.dayIcons[k])+'</em>':'');
+    cell.appendChild(num);
+
+    /* подпись поездки — в первый день и в начале каждой недели */
+    trips.slice(0,2).forEach(function(s){
+      var c=cat(s.cat);
+      var isStart=(s.from===k);
+      var el=document.createElement('div');
+      el.className='trip'+(isStart?'':(wd===0?' mid':' blank'));
+      el.style.background=rgba(c.color,.4);
+      if(isStart||wd===0){
+        el.style.color=tc;
+        el.innerHTML=(isStart?'<em>'+esc(s.icon||'✈️')+'</em>':'')+esc(s.text);
+      }
+      cell.appendChild(el);
+    });
+
+    var evs=visible(S.entries[k]).sort(sortEv);
+    if(evs.length){
+      var wrap=document.createElement('div'); wrap.className='evs';
+      evs.forEach(function(e){
+        var c=cat(e.cat);
+        var el=document.createElement('div');
+        el.className='ev';
+        el.style.background=rgba(c.color,.15);
+        el.style.borderLeftColor=c.color;
+        el.innerHTML=(e.time?'<i style="color:'+c.color+'">'+esc(e.time)+
+              (e.icon?'<em>'+esc(e.icon)+'</em>':'')+'</i>':'')+
+          '<u>'+(e.time?''
+                 :(e.icon?'<em>'+esc(e.icon)+'</em>'
+                         :'<b style="background:'+c.color+'"></b>'))+
+          esc(e.text)+'</u>';
+        wrap.appendChild(el);
+      });
+      cell.appendChild(wrap);
+      pending.push(wrap);
+    }
+    cell.onclick=(function(kk){ return function(){ openDaySheet(kk); }; })(k);
+    g.appendChild(cell);
+  }
+
+  /* Второй проход: прячем то, что не влезло по высоте, и ставим «+N». */
+  pending.forEach(function(box){
+    var h=box.clientHeight, hid=0;
+    if(!h) return;
+    while(box.scrollHeight>h && box.children.length>1){
+      box.removeChild(box.lastElementChild); hid++;
+    }
+    if(!hid) return;
+    var more=document.createElement('div');
+    more.className='more'; more.textContent='+'+hid;
+    box.appendChild(more);
+    while(box.scrollHeight>h && box.children.length>2){
+      box.removeChild(box.children[box.children.length-2]);
+      more.textContent='+'+(++hid);
+    }
+  });
+}
+function render(){ renderHead(); renderCats(); renderGrid(); }
+
+/* ---------- Шторки ---------- */
+function openSheet(el){
+  closeAll(true);
+  $('back').classList.add('on');
+  el.classList.add('on');
+}
+function closeAll(keepBack){
+  ['daySheet','monSheet','setSheet'].forEach(function(id){ $(id).classList.remove('on'); });
+  if(!keepBack) $('back').classList.remove('on');
+  palFor=null;
+}
+$('back').onclick=function(){ closeAll(); };
+document.querySelectorAll('[data-close]').forEach(function(b){ b.onclick=function(){ closeAll(); }; });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape') closeAll(); });
+
+/* ---------- День ---------- */
+function openDaySheet(k){
+  openDay=k; editId=null; editSpan=null; mode='one';
+  formIcon=''; formRem=''; formTripIcon='✈️';
+  var d=parseKey(k);
+  $('dayTitle').innerHTML=d.getDate()+' '+MONG[d.getMonth()]+
+    '<small>'+WDF[(d.getDay()+6)%7]+', '+d.getFullYear()+'</small>';
+  formCat=S.cats[0].id;
+  $('fTime').value=''; $('fText').value='';
+  $('fPlace').value=''; $('fFrom').value=k; $('fTo').value=k;
+  $('dayIcoPick').style.display='none';
+  renderDay();
+  openSheet($('daySheet'));
+}
+function renderDayIcon(){
+  var b=$('dayIco');
+  b.className='dayico'+(S.dayIcons[openDay]?'':' empty');
+  b.textContent=S.dayIcons[openDay]||'＋';
+}
+$('dayIco').onclick=function(){
+  var p=$('dayIcoPick');
+  if(p.style.display!=='none'){ p.style.display='none'; return; }
+  p.innerHTML='<div class="lbl">Значок дня</div>';
+  var row=document.createElement('div'); row.className='icos';
+  var none=document.createElement('button');
+  none.className='none'+(S.dayIcons[openDay]?'':' sel'); none.textContent='нет';
+  none.onclick=function(){ delete S.dayIcons[openDay]; save(); renderDayIcon(); renderGrid(); $('dayIco').onclick(); };
+  row.appendChild(none);
+  ICONS.concat(TRIPICONS).forEach(function(ic){
+    var b=document.createElement('button');
+    b.textContent=ic;
+    if(S.dayIcons[openDay]===ic) b.className='sel';
+    b.onclick=function(){ S.dayIcons[openDay]=ic; save(); renderDayIcon(); renderGrid(); $('dayIco').onclick(); };
+    row.appendChild(b);
+  });
+  p.appendChild(row);
+  p.style.display='block';
+};
+function renderDay(){
+  renderDayIcon();
+
+  /* поездки */
+  var tb=$('tripBox'); tb.innerHTML='';
+  var trips=spansOn(openDay,true);
+  if(trips.length){
+    var head=document.createElement('div');
+    head.className='lbl'; head.textContent='Поездка';
+    tb.appendChild(head);
+    var wrap=document.createElement('div'); wrap.className='list';
+    trips.forEach(function(s){
+      var c=cat(s.cat), n=dayCount(s.from,s.to);
+      var row=document.createElement('div');
+      row.className='row';
+      row.style.borderLeftColor=c.color;
+      row.style.background=rgba(c.color,.11);
+      row.innerHTML='<div class="ic">'+esc(s.icon||'✈️')+'</div>'+
+        '<div class="tx"><b style="font-weight:700">'+esc(s.text)+'</b>'+
+        '<em>'+shortDate(s.from)+' — '+shortDate(s.to)+' · '+n+' '+plural(n,['день','дня','дней'])+'</em></div>'+
+        '<button class="del" aria-label="Удалить">✕</button>';
+      row.querySelector('.del').onclick=function(ev){
+        ev.stopPropagation();
+        if(!confirm('Удалить поездку «'+s.text+'»?')) return;
+        S.spans=S.spans.filter(function(x){ return x.id!==s.id; });
+        if(editSpan===s.id) resetForm();
+        save(); renderDay(); renderGrid(); updCnt();
+      };
+      row.onclick=function(){ loadSpan(s); };
+      wrap.appendChild(row);
+    });
+    tb.appendChild(wrap);
+  }
+
+  /* записи */
+  var list=$('dayList'); list.innerHTML='';
+  var evs=(S.entries[openDay]||[]).slice().sort(sortEv);
+  if(trips.length){
+    var h2=document.createElement('div');
+    h2.className='lbl'; h2.textContent='В этот день';
+    list.appendChild(h2);
+  }
+  if(!evs.length){
+    var em=document.createElement('div');
+    em.className='empty'; em.textContent='Записей на этот день пока нет';
+    list.appendChild(em);
+  }else{
+    evs.forEach(function(e){
+      var c=cat(e.cat);
+      var sub=esc(c.name)+(e.remind!==''&&e.remind!==undefined?' · 🔔 '+remName(e.remind).toLowerCase():'');
+      var row=document.createElement('div');
+      row.className='row';
+      row.style.borderLeftColor=c.color;
+      row.innerHTML=
+        '<div class="tm" style="color:'+c.color+'">'+(e.time?esc(e.time):'—')+'</div>'+
+        (e.icon?'<div class="ic">'+esc(e.icon)+'</div>':'')+
+        '<div class="tx">'+esc(e.text)+'<em>'+sub+'</em></div>'+
+        '<button class="del" aria-label="Удалить">✕</button>';
+      row.querySelector('.del').onclick=function(ev){
+        ev.stopPropagation();
+        S.entries[openDay]=(S.entries[openDay]||[]).filter(function(x){ return x.id!==e.id; });
+        if(!S.entries[openDay].length) delete S.entries[openDay];
+        if(editId===e.id) resetForm();
+        save(); renderDay(); renderGrid(); updCnt();
+      };
+      row.onclick=function(){ loadEntry(e); };
+      list.appendChild(row);
+
+      if(e.remind!==''&&e.remind!==undefined){
+        var cal=document.createElement('button');
+        cal.className='btn sub';
+        cal.innerHTML='🔔&nbsp; Напомнить в Календаре iPhone';
+        cal.onclick=function(ev){ ev.stopPropagation(); toCalendar(e,openDay); };
+        list.appendChild(cal);
+      }
+    });
+  }
+  renderMode();
+}
+function renderIconRow(boxId,cur,set,list){
+  var box=$(boxId); box.innerHTML='';
+  var none=document.createElement('button');
+  none.className='none'+(cur?'':' sel'); none.textContent='нет';
+  none.onclick=function(){ set(''); };
+  box.appendChild(none);
+  list.forEach(function(ic){
+    var b=document.createElement('button');
+    b.textContent=ic;
+    if(cur===ic) b.className='sel';
+    b.onclick=function(){ set(ic); };
+    box.appendChild(b);
+  });
+}
+function renderRem(){
+  var p=$('fRem'); p.innerHTML='';
+  var on=!!$('fTime').value;
+  $('remLbl').style.opacity=on?'1':'.45';
+  REM.forEach(function(r){
+    var b=document.createElement('button');
+    b.className='chip'+(formRem===r[0]?' sel':'');
+    b.textContent=r[1];
+    if(!on&&r[0]!==''){ b.style.opacity='.4'; }
+    b.style.color=formRem===r[0]?'var(--accent)':'var(--text)';
+    b.onclick=function(){
+      if(!$('fTime').value&&r[0]!==''){ toast('Сначала укажи время события'); return; }
+      formRem=r[0]; renderRem();
+    };
+    p.appendChild(b);
+  });
+}
+function renderMode(){
+  document.querySelectorAll('#modeSeg button').forEach(function(b){
+    b.classList.toggle('sel',b.dataset.mode===mode);
+  });
+  $('oneFields').style.display  = mode==='one' ?'block':'none';
+  $('spanFields').style.display = mode==='span'?'block':'none';
+  $('fHint').innerHTML = mode==='one'
+    ? 'Время можно не указывать — запись просто встанет в начало дня. Напоминание передаётся стандартному Календарю iPhone, он и пришлёт уведомление.'
+    : 'Все дни поездки закрасятся цветом категории, а название будет видно прямо в сетке.';
+  var editing=editId||editSpan;
+  $('fSave').textContent=editing?'Сохранить изменение':(mode==='span'?'Добавить поездку':'Добавить');
+  $('fCancel').style.display=editing?'block':'none';
+  renderIconRow('fIcons',formIcon,function(v){ formIcon=v; renderMode(); },ICONS);
+  renderIconRow('fTripIcons',formTripIcon,function(v){ formTripIcon=v; renderMode(); },TRIPICONS);
+  renderRem();
+  renderPick();
+}
+function renderPick(){
+  var p=$('fCats'); p.innerHTML='';
+  S.cats.forEach(function(c){
+    var b=document.createElement('button');
+    b.className='chip'+(formCat===c.id?' sel':'');
+    b.style.color=c.color;
+    b.innerHTML='<i class="dot" style="background:'+c.color+'"></i>'+esc(c.name);
+    b.onclick=function(){ formCat=c.id; renderPick(); };
+    p.appendChild(b);
+  });
+}
+document.querySelectorAll('#modeSeg button').forEach(function(b){
+  b.onclick=function(){ mode=b.dataset.mode; editId=null; editSpan=null; renderMode(); };
+});
+$('fTime').addEventListener('input',renderRem);
+function loadEntry(e){
+  mode='one'; editId=e.id; editSpan=null; formCat=e.cat;
+  formIcon=e.icon||''; formRem=(e.remind===undefined?'':String(e.remind));
+  $('fTime').value=e.time||''; $('fText').value=e.text;
+  renderDay();
+  $('fText').focus();
+}
+function loadSpan(s){
+  mode='span'; editSpan=s.id; editId=null; formCat=s.cat;
+  formTripIcon=s.icon||'✈️';
+  $('fFrom').value=s.from; $('fTo').value=s.to; $('fPlace').value=s.text;
+  renderDay();
+}
+function resetForm(){
+  editId=null; editSpan=null;
+  $('fTime').value=''; $('fText').value='';
+  $('fPlace').value=''; $('fFrom').value=openDay; $('fTo').value=openDay;
+  formCat=S.cats[0].id; formIcon=''; formRem=''; formTripIcon='✈️';
+}
+$('fCancel').onclick=function(){ resetForm(); renderDay(); };
+
+$('fSave').onclick=function(){
+  if(mode==='span'){
+    var from=$('fFrom').value, to=$('fTo').value, place=$('fPlace').value.trim();
+    if(!from||!to){ toast('Укажи даты поездки'); return; }
+    if(to<from){ var t=from; from=to; to=t; }
+    if(!place){ toast('Напиши, куда поездка'); $('fPlace').focus(); return; }
+    if(dayCount(from,to)>400){ toast('Больше года — это уже переезд :)'); return; }
+    if(editSpan){
+      S.spans.forEach(function(s){
+        if(s.id===editSpan){ s.from=from; s.to=to; s.text=place; s.cat=formCat; s.icon=formTripIcon; }
+      });
+      editSpan=null;
+      toast('Поездка изменена');
+    }else{
+      S.spans.push({id:uid(),from:from,to:to,text:place,cat:formCat,icon:formTripIcon});
+      toast('Поездка добавлена');
+    }
+    $('fPlace').value=''; $('fFrom').value=openDay; $('fTo').value=openDay; formTripIcon='✈️';
+    save(); renderDay(); renderGrid(); updCnt();
+    return;
+  }
+
+  var txt=$('fText').value.trim(), tm=$('fTime').value;
+  if(!txt && !tm){ toast('Напиши, что за событие'); $('fText').focus(); return; }
+  if(!txt) txt='Без названия';
+  if(!tm) formRem='';
+  if(!S.entries[openDay]) S.entries[openDay]=[];
+  if(editId){
+    S.entries[openDay].forEach(function(e){
+      if(e.id===editId){ e.text=txt; e.time=tm; e.cat=formCat; e.icon=formIcon; e.remind=formRem; }
+    });
+    editId=null;
+  }else{
+    S.entries[openDay].push({id:uid(),text:txt,time:tm,cat:formCat,icon:formIcon,remind:formRem});
+  }
+  $('fTime').value=''; $('fText').value=''; formIcon=''; formRem='';
+  save(); renderDay(); renderGrid(); updCnt();
+};
+$('fText').addEventListener('keydown',function(e){ if(e.key==='Enter') $('fSave').click(); });
+$('fPlace').addEventListener('keydown',function(e){ if(e.key==='Enter') $('fSave').click(); });
+
+/* ---------- Навигация ---------- */
+function go(delta){ view=new Date(view.getFullYear(),view.getMonth()+delta,1); render(); }
+$('prev').onclick=function(){ go(-1); };
+$('next').onclick=function(){ go(1); };
+$('today').onclick=function(){ view=new Date(); view.setDate(1); render(); };
+
+var tx=0,ty=0,tm0=0, sc=$('scroll');
+sc.addEventListener('touchstart',function(e){
+  tx=e.touches[0].clientX; ty=e.touches[0].clientY; tm0=Date.now();
+},{passive:true});
+sc.addEventListener('touchend',function(e){
+  var dx=e.changedTouches[0].clientX-tx, dy=e.changedTouches[0].clientY-ty;
+  if(Date.now()-tm0<600 && Math.abs(dx)>55 && Math.abs(dx)>Math.abs(dy)*1.8) go(dx<0?1:-1);
+},{passive:true});
+
+/* ---------- Выбор месяца ---------- */
+$('title').onclick=function(){ pickY=view.getFullYear(); renderMon(); openSheet($('monSheet')); };
+$('yPrev').onclick=function(){ pickY--; renderMon(); };
+$('yNext').onclick=function(){ pickY++; renderMon(); };
+function renderMon(){
+  $('yLabel').textContent=pickY;
+  var g=$('monGrid'); g.innerHTML='';
+  MONSH.forEach(function(nm,i){
+    var b=document.createElement('button');
+    b.className='btn';
+    b.style.justifyContent='center'; b.style.marginBottom='0';
+    b.textContent=nm;
+    if(i===view.getMonth()&&pickY===view.getFullYear()){
+      b.style.color='var(--accent)'; b.style.fontWeight='800';
+    }
+    b.onclick=function(){ view=new Date(pickY,i,1); render(); closeAll(); };
+    g.appendChild(b);
+  });
+}
+
+/* ---------- Настройки ---------- */
+$('gear').onclick=function(){ renderSet(); openSheet($('setSheet')); };
+function renderSet(){
+  document.querySelectorAll('#sizeSeg button').forEach(function(b){
+    b.classList.toggle('sel',b.dataset.size===S.size);
+    b.onclick=function(){ S.size=b.dataset.size; save(); renderSet(); renderGrid(); };
+  });
+  renderCatEdit();
+  updCnt();
+}
+function renderCatEdit(){
+  var box=$('catEdit'); box.innerHTML='';
+  S.cats.forEach(function(c){
+    var row=document.createElement('div');
+    row.className='crow';
+    row.innerHTML='<button class="sw" style="background:'+c.color+'" aria-label="Цвет"></button>'+
+      '<input value="'+esc(c.name)+'" maxlength="24" aria-label="Название категории">'+
+      '<button class="del" aria-label="Удалить">✕</button>';
+    row.querySelector('.sw').onclick=function(){ palFor=(palFor===c.id?null:c.id); renderCatEdit(); };
+    row.querySelector('input').onchange=function(){
+      c.name=this.value.trim()||'Без названия'; save(); render();
+    };
+    row.querySelector('.del').onclick=function(){
+      if(S.cats.length<2){ toast('Должна остаться хотя бы одна категория'); return; }
+      var fb=(S.cats[0].id===c.id?S.cats[1]:S.cats[0]);
+      var used=0;
+      Object.keys(S.entries).forEach(function(k){
+        S.entries[k].forEach(function(e){ if(e.cat===c.id) used++; });
+      });
+      S.spans.forEach(function(s){ if(s.cat===c.id) used++; });
+      if(used && !confirm('В категории «'+c.name+'» есть записи ('+used+' шт.). Они перейдут в «'+fb.name+'». Удалить категорию?')) return;
+      Object.keys(S.entries).forEach(function(k){
+        S.entries[k].forEach(function(e){ if(e.cat===c.id) e.cat=fb.id; });
+      });
+      S.spans.forEach(function(s){ if(s.cat===c.id) s.cat=fb.id; });
+      S.cats=S.cats.filter(function(x){ return x.id!==c.id; });
+      S.hidden=S.hidden.filter(function(x){ return x!==c.id; });
+      if(formCat===c.id) formCat=fb.id;
+      save(); render(); renderCatEdit();
+    };
+    box.appendChild(row);
+
+    if(palFor===c.id){
+      var pal=document.createElement('div');
+      pal.className='pal';
+      PALETTE.forEach(function(col){
+        var b=document.createElement('button');
+        b.style.background=col;
+        if(col.toLowerCase()===String(c.color).toLowerCase()) b.className='sel';
+        b.onclick=function(){ c.color=col; palFor=null; save(); render(); renderCatEdit(); };
+        pal.appendChild(b);
+      });
+      box.appendChild(pal);
+    }
+  });
+}
+$('catAdd').onclick=function(){
+  if(S.cats.length>=12){ toast('Больше 12 категорий — уже перебор'); return; }
+  S.cats.push({id:uid(),name:'Новая категория',color:PALETTE[S.cats.length%PALETTE.length]});
+  save(); render(); renderCatEdit();
+};
+
+/* ---------- Копии ---------- */
+function count(){
+  var n=S.spans.length;
+  Object.keys(S.entries).forEach(function(k){ n+=S.entries[k].length; });
+  return n;
+}
+function updCnt(){ var l=$('cntLbl'); if(l) l.textContent=count()?count()+' зап.':''; }
+$('expBtn').onclick=function(){
+  var blob=new Blob([JSON.stringify(S,null,1)],{type:'application/json'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='kalendarik-'+key(new Date())+'.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+  toast('Копия сохранена');
+};
+$('impBtn').onclick=function(){ $('impFile').click(); };
+$('impFile').onchange=function(){
+  var f=this.files&&this.files[0]; if(!f) return;
+  var r=new FileReader();
+  r.onload=function(){
+    try{
+      var d=JSON.parse(r.result);
+      if(!d||typeof d!=='object'||!d.entries) throw 0;
+      if(count() && !confirm('Заменить текущие записи содержимым файла?')) return;
+      S=fix(d); formCat=S.cats[0].id;
+      save(); render(); renderSet();
+      toast('Загружено: '+count()+' зап.');
+    }catch(e){ toast('Это не похоже на копию календарика'); }
+  };
+  r.readAsText(f);
+  this.value='';
+};
+
+/* ---------- Старт ---------- */
+formCat=S.cats[0].id;
+render();
+
+var rzT;
+window.addEventListener('resize',function(){ clearTimeout(rzT); rzT=setTimeout(renderGrid,120); });
+
+if('serviceWorker' in navigator && location.protocol!=='file:'){
+  window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+}
+})();
+</script>
+</body>
+</html>
