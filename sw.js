@@ -1,5 +1,5 @@
 /* Офлайн-кэш Календарика */
-var CACHE = 'kalendarik-v1';
+var CACHE = 'kalendarik-v3';
 var FILES = [
   './',
   './index.html',
