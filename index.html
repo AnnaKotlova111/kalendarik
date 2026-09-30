@@ -568,6 +568,15 @@ textarea.fld{min-height:160px; resize:vertical; line-height:1.5; font-size:15.5p
       </div>
     </div>
     <div class="sect">
+      <h3>Версия</h3>
+      <button class="btn" id="verBtn">🔄&nbsp; Проверить обновление <span id="verLbl"></span></button>
+      <button class="btn" id="resetBtn">🧹&nbsp; Сбросить кэш и перезагрузить</button>
+      <div class="hint" style="padding:4px 3px">
+        Приложение обновляется само, когда есть интернет. Если оно всё равно показывает
+        старое — нажми «Сбросить кэш». Твои записи при этом не тронутся, они хранятся отдельно.
+      </div>
+    </div>
+    <div class="sect">
       <h3>Как поставить на телефон</h3>
       <div class="hint" style="padding:0 3px">
         Открой эту страницу в Safari на iPhone → кнопка «Поделиться» внизу → «На экран „Домой“».
@@ -648,6 +657,7 @@ var REM=[['','Без напоминания'],['0','Вовремя'],['10','За
 var REPEATS=[['','Не повторять'],['d','Каждый день'],['w','Каждую неделю'],['m','Каждый месяц'],['y','Каждый год']];
 var SIZES={s:1,m:1,l:1};
 var KEY='kalendarik.v1';
+var APPVER='30.09.2026 · 4';
 var PROJKEY='__proj';          /* «категория» проектов в ряду фильтров */
 
 /* ---------- Состояние ---------- */
@@ -1388,6 +1398,7 @@ function renderMon(){
 /* ---------- Настройки ---------- */
 $('gear').onclick=function(){ renderSet(); openSheet($('setSheet')); };
 function renderSet(){
+  var vl=$('verLbl'); if(vl) vl.textContent=APPVER;
   document.querySelectorAll('#sizeSeg button').forEach(function(b){
     b.classList.toggle('sel',b.dataset.size===S.size);
     b.onclick=function(){ S.size=b.dataset.size; save(); renderSet(); renderGrid(); };
@@ -1713,9 +1724,49 @@ render();
 var rzT;
 window.addEventListener('resize',function(){ clearTimeout(rzT); rzT=setTimeout(renderGrid,120); });
 
+var swReg=null;
 if('serviceWorker' in navigator && location.protocol!=='file:'){
-  window.addEventListener('load',function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+  var hadCtrl=!!navigator.serviceWorker.controller, reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(!hadCtrl||reloaded) return;   /* первая установка — перезагружать незачем */
+    reloaded=true; location.reload();
+  });
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      swReg=reg;
+      reg.update().catch(function(){});
+      /* приложение с рабочего стола не перезапускается — проверяем при каждом возврате */
+      document.addEventListener('visibilitychange',function(){
+        if(!document.hidden && swReg) swReg.update().catch(function(){});
+      });
+    }).catch(function(){});
+  });
 }
+$('verBtn').onclick=function(){
+  toast('Проверяю обновление…');
+  var done=function(){ setTimeout(function(){ location.reload(); },700); };
+  if(swReg){
+    swReg.update().then(function(){
+      if(swReg.waiting) swReg.waiting.postMessage('skipWaiting');
+      done();
+    }).catch(done);
+  }else done();
+};
+$('resetBtn').onclick=function(){
+  if(!confirm('Сбросить сохранённую копию приложения и загрузить свежую? Записи, заметки и проекты останутся на месте.')) return;
+  var jobs=[];
+  if(window.caches) jobs.push(caches.keys().then(function(ks){
+    return Promise.all(ks.map(function(k){ return caches.delete(k); }));
+  }));
+  if(navigator.serviceWorker) jobs.push(
+    navigator.serviceWorker.getRegistrations().then(function(rs){
+      return Promise.all(rs.map(function(r){ return r.unregister(); }));
+    })
+  );
+  Promise.all(jobs).catch(function(){}).then(function(){
+    location.replace(location.pathname+'?v='+Date.now());
+  });
+};
 })();
 </script>
 </body>

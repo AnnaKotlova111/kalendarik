@@ -1,5 +1,12 @@
-/* Офлайн-кэш Календарика */
-var CACHE = 'kalendarik-v3';
+/* Офлайн-кэш Календарика.
+
+   Стратегия разная для страницы и для остального:
+   — сама страница берётся из сети, если она есть (иначе приложение,
+     установленное на телефон, месяцами показывает старую версию),
+     и только при отсутствии сети — из кэша;
+   — иконки и манифест берутся из кэша сразу, они меняются редко.
+*/
+var CACHE = 'kalendarik-v4';
 var FILES = [
   './',
   './index.html',
@@ -29,15 +36,56 @@ self.addEventListener('activate', function(e){
   );
 });
 
-/* Сначала кэш — приложение открывается мгновенно и без сети.
-   Свежую версию подтягиваем в фоне. */
+/* Страница просит обновиться прямо сейчас */
+self.addEventListener('message', function(e){
+  if(e.data === 'skipWaiting') self.skipWaiting();
+});
+
+function isPage(req, url){
+  return req.mode === 'navigate'
+      || req.destination === 'document'
+      || url.pathname.endsWith('/')
+      || url.pathname.endsWith('index.html');
+}
+
 self.addEventListener('fetch', function(e){
   if(e.request.method !== 'GET') return;
+
+  var url;
+  try{ url = new URL(e.request.url); }catch(err){ return; }
+  if(url.origin !== location.origin) return;
+
+  /* Страница: сначала сеть, кэш — на случай отсутствия интернета */
+  if(isPage(e.request, url)){
+    /* no-cache: не даём браузеру отдать страницу из своего HTTP-кэша,
+       иначе обновление может не приезжать ещё минут десять */
+    var fresh = new Request(e.request.url, {cache:'no-cache', credentials:'same-origin'});
+    e.respondWith(
+      fetch(fresh).then(function(res){
+        if(res && res.status === 200){
+          var copy = res.clone();
+          caches.open(CACHE).then(function(c){
+            c.put('./index.html', copy.clone());
+            c.put('./', copy);
+          });
+        }
+        return res;
+      }).catch(function(){
+        return caches.match('./index.html').then(function(hit){
+          return hit || caches.match('./');
+        });
+      })
+    );
+    return;
+  }
+
+  /* Остальное: из кэша, с тихим обновлением в фоне */
   e.respondWith(
     caches.match(e.request).then(function(hit){
       var net = fetch(e.request).then(function(res){
         if(res && res.status === 200 && res.type === 'basic'){
-          caches.open(CACHE).then(function(c){ c.put(e.request, res.clone()); });
+          var copy = res.clone();
+          caches.open(CACHE).then(function(c){ c.put(e.request, copy); });
         }
         return res;
       }).catch(function(){ return hit; });
