@@ -6,7 +6,7 @@
      и только при отсутствии сети — из кэша;
    — иконки и манифест берутся из кэша сразу, они меняются редко.
 */
-var CACHE = 'kalendarik-v4';
+var CACHE = 'kalendarik-v5';
 var FILES = [
   './',
   './index.html',

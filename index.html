@@ -657,7 +657,7 @@ var REM=[['','Без напоминания'],['0','Вовремя'],['10','За
 var REPEATS=[['','Не повторять'],['d','Каждый день'],['w','Каждую неделю'],['m','Каждый месяц'],['y','Каждый год']];
 var SIZES={s:1,m:1,l:1};
 var KEY='kalendarik.v1';
-var APPVER='30.09.2026 · 4';
+var APPVER='30.09.2026 · 5';
 var PROJKEY='__proj';          /* «категория» проектов в ряду фильтров */
 
 /* ---------- Состояние ---------- */
@@ -1017,7 +1017,7 @@ function openSheet(el){
   el.classList.add('on');
 }
 function closeAll(keepBack){
-  ['daySheet','monSheet','setSheet'].forEach(function(id){ $(id).classList.remove('on'); });
+  document.querySelectorAll('.sheet').forEach(function(el){ el.classList.remove('on'); });
   if(!keepBack) $('back').classList.remove('on');
   palFor=null;
 }
